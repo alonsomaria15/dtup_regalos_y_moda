@@ -47,6 +47,7 @@ CREATE TABLE tipos_producto (
 -- ===============================
 CREATE TABLE productos (
   id_producto INT AUTO_INCREMENT PRIMARY KEY,
+  codigo VARCHAR(20) NOT NULL UNIQUE,   -- código único del producto
   nombre VARCHAR(150) NOT NULL,
   descripcion TEXT,
   precio_venta DECIMAL(10,2) NOT NULL,
@@ -54,11 +55,16 @@ CREATE TABLE productos (
   id_categoria INT NOT NULL,
   id_genero INT NULL,
   id_tipo INT NULL,
-  activo BOOLEAN DEFAULT 1,
+  id_sucursal INT NOT NULL,
+  imagen VARCHAR(255), -- ruta de la imagen del producto
+  activo VARCHAR(1) DEFAULT 'S', -- 'S' = sí activo, 'N' = no activo
   FOREIGN KEY (id_categoria) REFERENCES categorias(id_categoria),
   FOREIGN KEY (id_genero) REFERENCES generos(id_genero),
-  FOREIGN KEY (id_tipo) REFERENCES tipos_producto(id_tipo)
+  FOREIGN KEY (id_tipo) REFERENCES tipos_producto(id_tipo),
+  FOREIGN KEY (id_sucursal) REFERENCES sucursales(id_sucursal)
 );
+
+
 
 -- ===============================
 -- INVENTARIO POR SUCURSAL
