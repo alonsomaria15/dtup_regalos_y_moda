@@ -6,7 +6,7 @@ import { TrendingUp, ShoppingCart, Package, AlertCircle } from "lucide-react";
 export default function Dashboard() {
   const [busqueda, setBusqueda] = useState("");
   const [pagina, setPagina] = useState(1);
-  const productosPorPagina = 2; // Cambia este valor según quieras mostrar más o menos productos por página
+  const productosPorPagina = 10; // Cambia este valor según quieras mostrar más o menos productos por página
 
   // Datos de ejemplo
   const productos = [

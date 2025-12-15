@@ -2,10 +2,30 @@ import { useState } from "react";
 
 export default function Clientes() {
   const [busqueda, setBusqueda] = useState("");
+    const [pagina, setPagina] = useState(1);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const productosPorPagina = 10; // Cambia este valor según quieras mostrar más o menos productos por página
 
   // Datos de ejemplo
   const clientes = [
+    { id: 1, codigo: "CLI001", nombre: "Juan Pérez", telefono: "55-1234", email: "juan@mail.com", total: 2000, pagos: 1200 },
+    { id: 2, codigo: "CLI002", nombre: "María López", telefono: "55-5678", email: "maria@mail.com", total: 1500, pagos: 1500 },
+    { id: 3, codigo: "CLI003", nombre: "Carlos Martínez", telefono: "55-9012", email: "carlos@mail.com", total: 900, pagos: 500 },
+    { id: 1, codigo: "CLI001", nombre: "Juan Pérez", telefono: "55-1234", email: "juan@mail.com", total: 2000, pagos: 1200 },
+    { id: 2, codigo: "CLI002", nombre: "María López", telefono: "55-5678", email: "maria@mail.com", total: 1500, pagos: 1500 },
+    { id: 3, codigo: "CLI003", nombre: "Carlos Martínez", telefono: "55-9012", email: "carlos@mail.com", total: 900, pagos: 500 },
+    { id: 1, codigo: "CLI001", nombre: "Juan Pérez", telefono: "55-1234", email: "juan@mail.com", total: 2000, pagos: 1200 },
+    { id: 2, codigo: "CLI002", nombre: "María López", telefono: "55-5678", email: "maria@mail.com", total: 1500, pagos: 1500 },
+    { id: 3, codigo: "CLI003", nombre: "Carlos Martínez", telefono: "55-9012", email: "carlos@mail.com", total: 900, pagos: 500 },
+    { id: 1, codigo: "CLI001", nombre: "Juan Pérez", telefono: "55-1234", email: "juan@mail.com", total: 2000, pagos: 1200 },
+    { id: 2, codigo: "CLI002", nombre: "María López", telefono: "55-5678", email: "maria@mail.com", total: 1500, pagos: 1500 },
+    { id: 3, codigo: "CLI003", nombre: "Carlos Martínez", telefono: "55-9012", email: "carlos@mail.com", total: 900, pagos: 500 },
+    { id: 1, codigo: "CLI001", nombre: "Juan Pérez", telefono: "55-1234", email: "juan@mail.com", total: 2000, pagos: 1200 },
+    { id: 2, codigo: "CLI002", nombre: "María López", telefono: "55-5678", email: "maria@mail.com", total: 1500, pagos: 1500 },
+    { id: 3, codigo: "CLI003", nombre: "Carlos Martínez", telefono: "55-9012", email: "carlos@mail.com", total: 900, pagos: 500 },
+    { id: 1, codigo: "CLI001", nombre: "Juan Pérez", telefono: "55-1234", email: "juan@mail.com", total: 2000, pagos: 1200 },
+    { id: 2, codigo: "CLI002", nombre: "María López", telefono: "55-5678", email: "maria@mail.com", total: 1500, pagos: 1500 },
+    { id: 3, codigo: "CLI003", nombre: "Carlos Martínez", telefono: "55-9012", email: "carlos@mail.com", total: 900, pagos: 500 },
     { id: 1, codigo: "CLI001", nombre: "Juan Pérez", telefono: "55-1234", email: "juan@mail.com", total: 2000, pagos: 1200 },
     { id: 2, codigo: "CLI002", nombre: "María López", telefono: "55-5678", email: "maria@mail.com", total: 1500, pagos: 1500 },
     { id: 3, codigo: "CLI003", nombre: "Carlos Martínez", telefono: "55-9012", email: "carlos@mail.com", total: 900, pagos: 500 },
@@ -16,6 +36,13 @@ export default function Clientes() {
       c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
       c.codigo.toLowerCase().includes(busqueda.toLowerCase())
   );
+
+    // Calcular los productos que se mostrarán en la página actual
+  const indexUltimoProducto = pagina * productosPorPagina;
+  const indexPrimerProducto = indexUltimoProducto - productosPorPagina;
+  const clientesPagina = clientesFiltrados.slice(indexPrimerProducto, indexUltimoProducto);
+
+  const totalPaginas = Math.ceil(clientesFiltrados.length / productosPorPagina);
 
   return (
     <div className="p-6 space-y-6">
@@ -53,7 +80,7 @@ export default function Clientes() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {clientesFiltrados.map((c) => (
+            {clientesPagina.map((c) => (
               <tr key={c.id}>
                 <td className="p-2">{c.codigo}</td>
                 <td className="p-2">{c.nombre}</td>
@@ -66,6 +93,18 @@ export default function Clientes() {
             ))}
           </tbody>
         </table>
+          {/* Paginación */}
+        <div className="flex justify-center mt-4 space-x-2">
+          {Array.from({ length: totalPaginas }, (_, i) => (
+            <button
+              key={i + 1}
+              onClick={() => setPagina(i + 1)}
+              className={`px-3 py-1 rounded ${pagina === i + 1 ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+            >
+              {i + 1}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Modal para agregar cliente */}

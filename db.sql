@@ -3,9 +3,9 @@
 -- React + Node + MySQL
 -- ===============================
 
-DROP DATABASE IF EXISTS negocio;
-CREATE DATABASE negocio CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-USE negocio;
+DROP DATABASE IF EXISTS dtup_regalos_y_moda;
+CREATE DATABASE dtup_regalos_y_moda CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+USE dtup_regalos_y_moda;
 
 -- ===============================
 -- SUCURSALES
@@ -14,16 +14,15 @@ CREATE TABLE sucursales (
   id_sucursal INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(100) NOT NULL,
   direccion VARCHAR(150),
-  activo BOOLEAN DEFAULT 1
+  activo VARCHAR(1) DEFAULT 'S' -- 'S' = sí activo, 'N' = no activo
 );
-
 -- ===============================
 -- CATEGORIAS
 -- ===============================
 CREATE TABLE categorias (
   id_categoria INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(100) NOT NULL,
-  activo BOOLEAN DEFAULT 1
+  activo VARCHAR(1) DEFAULT 'S' -- 'S' = sí activo, 'N' = no activo
 );
 
 -- ===============================
@@ -89,7 +88,7 @@ CREATE TABLE clientes (
   telefono VARCHAR(20),
   direccion VARCHAR(150),
   saldo DECIMAL(10,2) DEFAULT 0,
-  activo BOOLEAN DEFAULT 1
+  activo VARCHAR(1) DEFAULT 'S' -- 'S' = sí activo, 'N' = no activo
 );
 
 -- ===============================
@@ -154,7 +153,7 @@ CREATE TABLE usuarios (
   password VARCHAR(255) NOT NULL,
   rol ENUM('admin','vendedor') DEFAULT 'vendedor',
   id_sucursal INT NOT NULL,
-  activo BOOLEAN DEFAULT 1,
+  activo VARCHAR(1) DEFAULT 'S', -- 'S' = sí activo, 'N' = no activo
   FOREIGN KEY (id_sucursal) REFERENCES sucursales(id_sucursal)
 );
 
@@ -168,5 +167,5 @@ CREATE TABLE descuentos (
   valor DECIMAL(10,2),
   fecha_inicio DATE,
   fecha_fin DATE,
-  activo BOOLEAN DEFAULT 1
+  activo VARCHAR(1) DEFAULT 'S' -- 'S' = sí activo, 'N' = no activo
 );
