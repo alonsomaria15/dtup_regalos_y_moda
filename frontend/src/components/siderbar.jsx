@@ -1,4 +1,12 @@
-import { LayoutDashboard, Package, Users, DollarSign, BarChart2, Settings } from "lucide-react";
+import {
+  LayoutDashboard,
+  Package,
+  Users,
+  DollarSign,
+  BarChart2,
+  Settings,
+  Wallet,
+} from "lucide-react";
 
 export default function Sidebar({ selected, setSelected }) {
   const menu = [
@@ -7,7 +15,8 @@ export default function Sidebar({ selected, setSelected }) {
     { name: "Clientes", icon: <Users size={20} /> },
     { name: "Ventas", icon: <DollarSign size={20} /> },
     { name: "Abonos", icon: <DollarSign size={20} /> },
-    { name: "Reportes", icon: <BarChart2 size={20} /> }, // Sección para gráficas y reportes
+    { name: "Salidas de dinero", icon: <Wallet size={20} /> }, // 💸 NUEVO MÓDULO
+    { name: "Reportes", icon: <BarChart2 size={20} /> },
     { name: "Configuración", icon: <Settings size={20} /> },
   ];
 
@@ -32,7 +41,6 @@ export default function Sidebar({ selected, setSelected }) {
         ))}
       </nav>
 
-      {/* Opcional: información extra al pie del sidebar */}
       <div className="mt-6 text-sm text-gray-500">
         <p>Versión 1.0</p>
         <p>&copy; 2025 Mi Negocio</p>

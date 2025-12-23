@@ -2,10 +2,12 @@ import { useState } from "react";
 import Sidebar from "./components/siderbar.jsx";
 import Dashboard from "./pages/dashboard.jsx";
 import Grafic from "./pages/reportes.jsx";
-import AgregarProducto from "./pages/productos.jsx";
+import AgregarProducto from "./pages/productos.jsx"; // Componente completo
 import AgregarCliente from "./pages/clientes.jsx";
 import RegistrarVenta from "./pages/ventas.jsx";
 import Abonos from "./pages/abonos.jsx";
+import SalidasDinero from "./pages/salidasDinero.jsx";
+
 
 export default function App() {
   const [selected, setSelected] = useState("Dashboard");
@@ -22,6 +24,7 @@ export default function App() {
         {selected === "Clientes" && <AgregarCliente />}
         {selected === "Ventas" && <RegistrarVenta />}
         {selected === "Abonos" && <Abonos />}
+        {selected === "Salidas de dinero" && <SalidasDinero />}
         {selected === "Reportes" && <Grafic />}
         {selected === "Configuración" && <div>⚙️ Configuración</div>}
       </main>

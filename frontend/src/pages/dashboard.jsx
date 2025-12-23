@@ -1,20 +1,24 @@
+// Dashboard.jsx
 import { useState } from "react";
 import Card from "../components/card.jsx";
 import DashboardHeader from "../components/dashboardHeader.jsx";
-import { TrendingUp, ShoppingCart, Package, AlertCircle } from "lucide-react";
+import { TrendingUp, ShoppingCart, Package, AlertCircle, Users, DollarSign, ArrowDown, ArrowUp, BarChart } from "lucide-react";
+import { Link } from "react-router-dom"; // Para navegar a pestaña de gráficas
 
 export default function Dashboard() {
   const [busqueda, setBusqueda] = useState("");
   const [pagina, setPagina] = useState(1);
-  const productosPorPagina = 10; // Cambia este valor según quieras mostrar más o menos productos por página
+  const productosPorPagina = 10;
 
-  // Datos de ejemplo
   const productos = [
     { id_producto: 1, codigo: "PRD001", nombre: "Camisa azul", precio_venta: 350, precio_compra: 200, stock: 2, sucursal: "Centro", activo: "S", imagen: "https://via.placeholder.com/40" },
     { id_producto: 2, codigo: "PRD002", nombre: "Zapatos negros", precio_venta: 800, precio_compra: 500, stock: 1, sucursal: "Norte", activo: "S", imagen: "https://via.placeholder.com/40" },
     { id_producto: 3, codigo: "PRD003", nombre: "Sombrero gris", precio_venta: 220, precio_compra: 120, stock: 3, sucursal: "Centro", activo: "S", imagen: "https://via.placeholder.com/40" },
-    { id_producto: 4, codigo: "PRD004", nombre: "Pantalón negro", precio_venta: 500, precio_compra: 300, stock: 4, sucursal: "Sur", activo: "S", imagen: "https://via.placeholder.com/40" },
-    { id_producto: 5, codigo: "PRD005", nombre: "Chaqueta roja", precio_venta: 650, precio_compra: 400, stock: 2, sucursal: "Centro", activo: "S", imagen: "https://via.placeholder.com/40" },
+  ];
+
+  const clientes = [
+    { id: 1, nombre: "Juan Pérez", deuda: 1200, productos_pendientes: 2 },
+    { id: 2, nombre: "María López", deuda: 400, productos_pendientes: 1 },
   ];
 
   // Filtrar productos según búsqueda
@@ -23,11 +27,10 @@ export default function Dashboard() {
     p.codigo.toLowerCase().includes(busqueda.toLowerCase())
   );
 
-  // Calcular los productos que se mostrarán en la página actual
+  // Paginación
   const indexUltimoProducto = pagina * productosPorPagina;
   const indexPrimerProducto = indexUltimoProducto - productosPorPagina;
   const productosPagina = productosFiltrados.slice(indexPrimerProducto, indexUltimoProducto);
-
   const totalPaginas = Math.ceil(productosFiltrados.length / productosPorPagina);
 
   return (
@@ -35,25 +38,30 @@ export default function Dashboard() {
       <DashboardHeader sucursal="Sucursal Centro" />
       <h2 className="text-2xl font-semibold mb-4">Panel de Ventas</h2>
 
+      {/* Métricas rápidas */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card title="Ganancias" value="$12,340" icon={<TrendingUp size={24} />} />
         <Card title="Stock total" value="327 unidades" icon={<Package size={24} />} />
         <Card title="Caja disponible" value="$5,000" icon={<ShoppingCart size={24} />} />
         <Card title="Deudas pendientes" value="$1,200" icon={<AlertCircle size={24} />} />
+        <Card title="Clientes con deuda" value={clientes.length} icon={<Users size={24} />} />
+        <Card title="Entradas" value="$6,500" icon={<ArrowUp size={24} />} />
+        <Card title="Salidas" value="$2,300" icon={<ArrowDown size={24} />} />
+        <Card title="Gráficas" value="Ver más" icon={<BarChart size={24} />}>
+          <Link to="/graficas" className="text-blue-600 underline ml-2">Ir a gráficas</Link>
+        </Card>
       </div>
 
-      {/* Tabla de inventario con paginación */}
+      {/* Tabla de inventario */}
       <div className="bg-white p-6 rounded-2xl shadow-sm">
         <h3 className="text-lg font-semibold mb-2">Inventario de productos</h3>
-
         <input
           type="text"
           placeholder="Buscar producto por nombre o código..."
           className="mb-4 w-full border p-2 rounded focus:ring-2 focus:ring-blue-400"
           value={busqueda}
-          onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }} // reinicia a la página 1 al buscar
+          onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }}
         />
-
         <table className="min-w-full border divide-y divide-gray-200">
           <thead className="bg-gray-100 text-left">
             <tr>
@@ -71,9 +79,7 @@ export default function Dashboard() {
             {productosPagina.map((p) => (
               <tr key={p.id_producto}>
                 <td className="p-2">{p.codigo}</td>
-                <td className="p-2">
-                  <img src={p.imagen} alt={p.nombre} className="w-12 h-12 object-cover rounded" />
-                </td>
+                <td className="p-2"><img src={p.imagen} alt={p.nombre} className="w-12 h-12 object-cover rounded" /></td>
                 <td className="p-2">{p.nombre}</td>
                 <td className="p-2">${p.precio_venta}</td>
                 <td className="p-2">${p.precio_compra}</td>
@@ -84,8 +90,6 @@ export default function Dashboard() {
             ))}
           </tbody>
         </table>
-
-        {/* Paginación */}
         <div className="flex justify-center mt-4 space-x-2">
           {Array.from({ length: totalPaginas }, (_, i) => (
             <button
