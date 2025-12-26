@@ -1,207 +1,452 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 
-export default function AgregarProducto() {
-  const [nombre, setNombre] = useState("");
-  const [descripcion, setDescripcion] = useState("");
-  const [precioCompra, setPrecioCompra] = useState("");
-  const [precioVenta, setPrecioVenta] = useState("");
-  const [imagen, setImagen] = useState(null);
-
+function Inventario() {
+  const [productos, setProductos] = useState([]);
+  const [buscar, setBuscar] = useState("");
+  const [mostrarModal, setMostrarModal] = useState(false);
+  const [mostrarModalVariantes, setMostrarModalVariantes] = useState(false);
+  const [imagenGrande, setImagenGrande] = useState(null);
+  const [paginaActual, setPaginaActual] = useState(1);
+  const [productosPorPagina] = useState(10);
   const [categorias, setCategorias] = useState([]);
-  const [tipos, setTipos] = useState([]);
   const [generos, setGeneros] = useState([]);
+  const [tiposFiltrados, setTiposFiltrados] = useState([]);
+
+  const [mostrarModalVariantesProducto, setMostrarModalVariantesProducto] =
+    useState(false);
+
+  const [productoSeleccionado, setProductoSeleccionado] = useState(null);
   const [variantes, setVariantes] = useState([]);
 
-  const [categoria, setCategoria] = useState("");
-  const [tipo, setTipo] = useState("");
-  const [genero, setGenero] = useState("");
+  // 🟢 Estado principal del producto
+  const [nuevoProducto, setNuevoProducto] = useState({
+    id_producto: "",
+    codigo: "",
+    nombre: "",
+    categoria: "",
+    genero: "",
+    tipo: "",
+    precio_compra: "",
+    precio_venta: "",
+    stock: "",
+    imagen: "",
+  });
 
-  // Modal variante
-  const [modalVisible, setModalVisible] = useState(false);
-  const [varianteModelo, setVarianteModelo] = useState("");
-  const [varianteColor, setVarianteColor] = useState("");
-  const [varianteTalla, setVarianteTalla] = useState("");
-  const [variantePrecio, setVariantePrecio] = useState("");
-
-  const [mostrarModal, setMostrarModal] = useState(false);
-  const [mostrarTablaProductos, setMostrarTablaProductos] = useState(true);
-
-  const [editando, setEditando] = useState(false);
-  const [idProducto, setIdProducto] = useState(null);
-
-  // Inicialización
-  useEffect(() => {
-    setMostrarModal(false);
-    setMostrarTablaProductos(true);
-  }, []);
-
-  const abrirModal = () => {
-    setMostrarModal(true);
-    setMostrarTablaProductos(false);
-  };
-
-  // Cargar categorías
-  useEffect(() => {
-    axios
-      .get("http://localhost:3001/api/categorias")
-      .then((res) => setCategorias(res.data))
-      .catch((err) => console.error(err));
-  }, []);
-
-  // Cargar géneros
-  useEffect(() => {
-    axios
-      .get("http://localhost:3001/api/genero")
-      .then((res) => setGeneros(res.data))
-      .catch((err) => console.error(err));
-  }, []);
-
-  // Cargar tipos según categoría
-  useEffect(() => {
-    if (!categoria) {
-      setTipos([]); // limpiar tipos si no hay categoría
-      setTipo(""); // resetear tipo seleccionado
-      return;
-    }
-    axios
-      .get(`http://localhost:3001/api/tipos?id_categoria=${categoria}`)
-      .then((res) => {
-        setTipos(res.data);
-        setTipo(""); // resetear tipo al cambiar categoría
-      })
-      .catch((err) => {
-        console.error("Error al obtener tipos:", err);
-        setTipos([]);
-      });
-  }, [categoria]);
-
-  // Agregar variante
-  const agregarVariante = () => {
-    if (!varianteModelo || !varianteColor || !varianteTalla || !variantePrecio) {
-      alert("Completa todos los campos de la variante");
-      return;
-    }
-    setVariantes([
-      ...variantes,
-      {
-        modelo: varianteModelo,
-        color: varianteColor,
-        talla: varianteTalla,
-        precio: variantePrecio,
-      },
-    ]);
-    setVarianteModelo("");
-    setVarianteColor("");
-    setVarianteTalla("");
-    setVariantePrecio("");
-    setModalVisible(false);
-  };
-
-  const eliminarVariante = (index) => {
+  // 🧩 Función para actualizar una variante
+  const actualizarVariante = (index, campo, valor) => {
     const nuevas = [...variantes];
-    nuevas.splice(index, 1);
+    nuevas[index][campo] = valor;
     setVariantes(nuevas);
   };
 
-  // Enviar formulario (Agregar o Editar)
-  const handleSubmit = async (e) => {
-  e.preventDefault();
-
-  const formData = new FormData();
-  formData.append("nombre", nombre);
-  formData.append("precio_venta", precioVenta);
-  formData.append("precio_compra", precioCompra);
-  formData.append("id_categoria", categoria);
-  formData.append("id_tipo", tipo);
-  if (genero) formData.append("id_genero", genero);
-  if (imagen) formData.append("imagen", imagen);
-
-  try {
-    await axios.post("http://localhost:3001/api/productos/agregar", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
+  // 🧹 Limpiar campos
+  const limpiarCampos = () => {
+    setNuevoProducto({
+      id_producto: "",
+      codigo: "",
+      nombre: "",
+      categoria: "",
+      genero: "",
+      tipo: "",
+      precio_compra: "",
+      precio_venta: "",
+      stock: "",
+      imagen: "",
     });
-    alert("Producto agregado correctamente");
-  } catch (error) {
-    console.error(error.response?.data || error);
-    alert("Error al guardar producto");
-  }
-};
-
-
-  // Cargar producto para editar
-  const editarProducto = (producto) => {
-    setIdProducto(producto.id_producto);
-    setNombre(producto.nombre);
-    setDescripcion(producto.descripcion);
-    setCategoria(producto.id_categoria);
-    setTipo(producto.id_tipo);
-    setGenero(producto.id_genero || "");
-    setPrecioCompra(producto.precio_compra);
-    setPrecioVenta(producto.precio_venta);
-    setEditando(true);
-    setMostrarModal(true);
-    setMostrarTablaProductos(false);
+    setVariantes([]);
   };
 
+  // 🔹 Generar código automático
+  const generarCodigo = () => {
+    return "PRD" + Math.floor(100000 + Math.random() * 900000);
+  };
+
+  // 🟢 Cargar productos al iniciar
+  useEffect(() => {
+    async function fetchProductos() {
+      try {
+        const res = await axios.get("http://localhost:3001/api/productos");
+        setProductos(res.data);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    fetchProductos();
+  }, []);
+
+  // 🟢 Cargar categorías
+  useEffect(() => {
+    async function fetchCategorias() {
+      try {
+        const res = await axios.get("http://localhost:3001/api/categorias");
+        setCategorias(res.data);
+      } catch (error) {
+        console.error("Error al cargar categorías:", error);
+      }
+    }
+    fetchCategorias();
+  }, []);
+
+  // 🟢 Cargar géneros
+  useEffect(() => {
+    async function fetchGeneros() {
+      try {
+        const res = await axios.get("http://localhost:3001/api/genero");
+        setGeneros(res.data);
+      } catch (error) {
+        console.error("Error al cargar géneros:", error);
+      }
+    }
+    fetchGeneros();
+  }, []);
+
+  // 🟡 Agregar o editar producto
+  const handleAgregarProducto = async () => {
+    try {
+      const formData = new FormData();
+      const codigoGenerado = nuevoProducto.codigo || generarCodigo();
+
+      formData.append("codigo", codigoGenerado);
+      formData.append("nombre", nuevoProducto.nombre);
+      formData.append("categoria", nuevoProducto.categoria);
+      formData.append("genero", nuevoProducto.genero);
+      formData.append("precio_compra", nuevoProducto.precio_compra);
+      formData.append("precio_venta", nuevoProducto.precio_venta);
+      formData.append("stock", nuevoProducto.stock);
+
+      if (nuevoProducto.imagen) {
+        formData.append("imagen", nuevoProducto.imagen);
+      }
+
+      if (nuevoProducto.id_producto) {
+        // ✏️ EDITAR
+        await axios.put(
+          `http://localhost:3001/api/productos/${nuevoProducto.id_producto}`,
+          formData,
+          { headers: { "Content-Type": "multipart/form-data" } }
+        );
+        alert("✅ Producto actualizado correctamente");
+      } else {
+        // 🆕 AGREGAR
+        const res = await axios.post(
+          "http://localhost:3001/api/productos/agregar",
+          formData,
+          { headers: { "Content-Type": "multipart/form-data" } }
+        );
+
+        const id_producto = res.data.id_producto;
+
+        if (variantes.length > 0) {
+          await axios.post("http://localhost:3001/api/variantes", {
+            id_producto,
+            variantes,
+          });
+        }
+
+        alert("✅ Producto y variantes registrados correctamente");
+      }
+
+      // 🔄 Limpiar y recargar
+      limpiarCampos();
+      setMostrarModal(false);
+      const r = await axios.get("http://localhost:3001/api/productos");
+      setProductos(r.data);
+    } catch (error) {
+      console.error(error);
+      alert("❌ Error al registrar o actualizar producto");
+    }
+  };
+
+  // ✏️ Editar producto
+  const handleEditarProducto = (producto) => {
+    setNuevoProducto({
+      id_producto: producto.id_producto,
+      codigo: producto.codigo,
+      nombre: producto.nombre,
+      categoria: producto.categoria,
+      genero: producto.genero,
+      precio_compra: producto.precio_compra,
+      precio_venta: producto.precio_venta,
+      stock: producto.stock,
+      imagen: null,
+    });
+    setMostrarModal(true);
+  };
+
+  // 🗑️ Eliminar producto
+  const handleEliminarProducto = async (id_producto) => {
+    if (window.confirm("¿Seguro que deseas eliminar este producto?")) {
+      try {
+        await axios.delete(`http://localhost:3001/api/productos/${id_producto}`);
+        setProductos(productos.filter((p) => p.id_producto !== id_producto));
+        alert("🗑️ Producto eliminado correctamente");
+      } catch (error) {
+        console.error("Error al eliminar producto:", error);
+        alert("❌ Error al eliminar producto");
+      }
+    }
+  };
+
+  // 👕 Abrir modal variantes del producto
+  const abrirModalVariantesProducto = async (id_producto) => {
+    try {
+      setProductoSeleccionado(id_producto);
+      const res = await axios.get(
+        `http://localhost:3001/api/variantes/${id_producto}`
+      );
+      setVariantes(res.data);
+      setMostrarModalVariantesProducto(true);
+    } catch (error) {
+      console.error("Error al cargar variantes:", error);
+    }
+  };
+
+  // 🔍 Filtrar productos
+  const productosFiltrados = productos.filter(
+    (p) =>
+      p.nombre?.toLowerCase().includes(buscar.toLowerCase()) ||
+      p.categoria?.toLowerCase().includes(buscar.toLowerCase()) ||
+      p.codigo?.toLowerCase().includes(buscar.toLowerCase())
+  );
+
+  // 🔹 Paginación
+  const indexUltimo = paginaActual * productosPorPagina;
+  const indexPrimero = indexUltimo - productosPorPagina;
+  const productosPagina = productosFiltrados.slice(indexPrimero, indexUltimo);
+  const totalPaginas = Math.ceil(productosFiltrados.length / productosPorPagina);
+
   return (
-    <>
-      {/* Formulario */}
-      {mostrarModal && (
-        <div className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
-          <div className="w-full max-w-xl bg-white p-6 rounded-2xl shadow-sm">
-            <h2 className="text-2xl font-semibold mb-6 text-center">
-              {editando ? "Editar Producto" : "Agregar Producto"}
-            </h2>
-            <form onSubmit={handleSubmit} encType="multipart/form-data">
-              {/* Nombre */}
-              <div className="mb-4">
-                <label className="block font-medium mb-1">Nombre</label>
+    <div className="p-6 bg-gray-100 min-h-screen">
+      <div className="bg-white shadow-xl rounded-2xl p-6 space-y-6">
+        <h2 className="text-2xl font-semibold mb-4">Inventario</h2>
+
+        {/* Encabezado */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col">
+            <label className="text-gray-600 font-medium">Total Inversión</label>
+            <span className="text-xl font-semibold text-green-600">
+              $
+              {productos
+                .reduce(
+                  (total, p) => total + Number(p.precio_compra) * Number(p.stock),
+                  0
+                )
+                .toLocaleString()}
+            </span>
+          </div>
+
+          {/* 🔍 Búsqueda + botón */}
+          <div className="flex items-center gap-4">
+            <input
+              type="text"
+              placeholder="Buscar producto..."
+              className="border p-2 rounded focus:ring-2 focus:ring-blue-400"
+              value={buscar}
+              onChange={(e) => {
+                setBuscar(e.target.value);
+                setPaginaActual(1);
+              }}
+            />
+            <button
+              onClick={() => {
+                limpiarCampos();
+                setMostrarModal(true);
+              }}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+            >
+              Agregar Producto
+            </button>
+          </div>
+        </div>
+
+        {/* Tabla */}
+        <div className="overflow-x-auto">
+          <table className="min-w-full border divide-y divide-gray-200 mt-4">
+            <thead className="bg-gray-100 text-left">
+              <tr>
+                <th className="p-2">N°</th>
+                <th className="p-2">Código</th>
+                <th className="p-2">Imagen</th>
+                <th className="p-2">Nombre</th>
+                <th className="p-2">Categoría</th>
+                <th className="p-2">Precio Compra</th>
+                <th className="p-2">Precio Venta</th>
+                <th className="p-2">Ganancias</th>
+                <th className="p-2">Stock</th>
+                <th className="p-2">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {productosPagina.length > 0 ? (
+                productosPagina.map((p, index) => (
+                  <tr key={p.id_producto}>
+                    <td className="p-2">
+                      {(paginaActual - 1) * productosPorPagina + index + 1}
+                    </td>
+                    <td className="p-2">{p.codigo}</td>
+                    <td className="p-2">
+                      {p.imagen ? (
+                        <img
+                          src={`http://localhost:3001/uploads/${p.imagen}`}
+                          alt={p.nombre}
+                          onError={(e) =>
+                            (e.target.src = "https://via.placeholder.com/50")
+                          }
+                          className="w-16 h-16 object-cover rounded cursor-pointer hover:scale-110 transition-transform"
+                          onClick={() =>
+                            setImagenGrande(`http://localhost:3001/uploads/${p.imagen}`)
+                          }
+                        />
+                      ) : (
+                        "Sin imagen"
+                      )}
+                    </td>
+                    <td className="p-2">{p.nombre}</td>
+                    <td className="p-2">{p.categoria}</td>
+                    <td className="p-2">${p.precio_compra}</td>
+                    <td className="p-2">${p.precio_venta}</td>
+                    <td className="p-2">${p.precio_venta - p.precio_compra}</td>
+                    <td className="p-2">{p.stock}</td>
+                    <td className="p-2 flex gap-2">
+                      <button
+                        className="bg-yellow-400 text-white px-3 py-1 rounded hover:bg-yellow-500 transition"
+                        onClick={() => handleEditarProducto(p)}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
+                        onClick={() => handleEliminarProducto(p.id_producto)}
+                      >
+                        Eliminar
+                      </button>
+                      <button
+                        className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition"
+                        onClick={() => abrirModalVariantesProducto(p.id_producto)}
+                      >
+                        Variantes
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="10" className="text-center py-4 text-gray-500">
+                    No se encontraron productos
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
+          {/* Paginación */}
+          {totalPaginas > 1 && (
+            <div className="flex justify-center mt-4 space-x-2">
+              {Array.from({ length: totalPaginas }, (_, i) => (
+                <button
+                  key={i + 1}
+                  onClick={() => setPaginaActual(i + 1)}
+                  className={`px-3 py-1 rounded ${
+                    paginaActual === i + 1
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-200 hover:bg-gray-300"
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Imagen ampliada */}
+        {imagenGrande && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50"
+            onClick={() => setImagenGrande(null)}
+          >
+            <img
+              src={imagenGrande}
+              alt="Vista ampliada"
+              className="max-w-3xl max-h-[80vh] rounded-2xl shadow-2xl border-4 border-white transition-transform duration-300 scale-100 hover:scale-105"
+            />
+          </div>
+        )}
+
+        {/* 🧩 Modal de producto */}
+        {mostrarModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white w-full max-w-md p-6 rounded-2xl shadow-lg relative">
+              <button
+                onClick={() => {
+                  limpiarCampos();
+                  setMostrarModal(false);
+                }}
+                className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl font-bold"
+              >
+                &times;
+              </button>
+
+              <h2 className="text-2xl font-semibold text-center text-gray-800 mb-6">
+                {nuevoProducto.id_producto
+                  ? "Editar Producto"
+                  : "Agregar Producto"}
+              </h2>
+
+              {/* Formulario */}
+              <div className="flex flex-col space-y-4">
                 <input
                   type="text"
-                  className="w-full border p-2 rounded"
-                  value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
-                  required
+                  placeholder="Nombre del producto"
+                  value={nuevoProducto.nombre}
+                  onChange={(e) =>
+                    setNuevoProducto({
+                      ...nuevoProducto,
+                      nombre: e.target.value,
+                    })
+                  }
+                  className="border rounded-lg p-2 w-full focus:ring-2 focus:ring-purple-400"
                 />
-              </div>
 
-              {/* Descripción */}
-              <div className="mb-4">
-                <label className="block font-medium mb-1">Descripción</label>
-                <textarea
-                  className="w-full border p-2 rounded"
-                  value={descripcion}
-                  onChange={(e) => setDescripcion(e.target.value)}
-                />
-              </div>
-
-              {/* Categoría */}
-              <div className="mb-4">
-                <label className="block font-medium mb-1">Categoría</label>
-                <select
-                  value={categoria}
-                  onChange={(e) => setCategoria(e.target.value)}
-                  className="w-full border p-2 rounded"
-                  required
-                >
-                  <option value="">Selecciona una categoría</option>
-                  {categorias.map((cat) => (
-                    <option key={cat.id_categoria} value={cat.id_categoria}>
-                      {cat.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Género */}
-              {categoria === "1" && (
-                <div className="mb-4">
-                  <label className="block font-medium mb-1">Género</label>
+                {/* Categoría */}
+                <div>
+                  <label className="block text-gray-600 text-sm mb-1">
+                    Categoría
+                  </label>
                   <select
-                    value={genero}
-                    onChange={(e) => setGenero(e.target.value)}
-                    className="w-full border p-2 rounded"
+                    value={nuevoProducto.categoria || ""}
+                    onChange={(e) =>
+                      setNuevoProducto({
+                        ...nuevoProducto,
+                        categoria: e.target.value,
+                      })
+                    }
+                    className="border rounded-lg p-2 w-full focus:ring-2 focus:ring-purple-400"
+                  >
+                    <option value="">Selecciona una categoría</option>
+                    {categorias.map((c) => (
+                      <option key={c.id_categoria} value={c.id_categoria}>
+                        {c.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Género */}
+                <div>
+                  <label className="block text-gray-600 text-sm mb-1">
+                    Género
+                  </label>
+                  <select
+                    value={nuevoProducto.genero || ""}
+                    onChange={(e) =>
+                      setNuevoProducto({
+                        ...nuevoProducto,
+                        genero: e.target.value,
+                      })
+                    }
+                    className="border rounded-lg p-2 w-full focus:ring-2 focus:ring-purple-400"
                   >
                     <option value="">Selecciona un género</option>
                     {generos.map((g) => (
@@ -211,310 +456,150 @@ export default function AgregarProducto() {
                     ))}
                   </select>
                 </div>
-              )}
 
-              {/* Tipo */}
-              <div className="mb-4">
-                <label className="block font-medium mb-1">Tipo de producto</label>
-                <select
-                  value={tipo}
-                  onChange={(e) => setTipo(e.target.value)}
-                  className="w-full border p-2 rounded"
-                  required
-                  disabled={!categoria}
+                {/* Stock */}
+                <div>
+                  <label className="block text-gray-600 text-sm mb-1">
+                    Stock disponible
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="Cantidad en existencia"
+                    value={nuevoProducto.stock}
+                    onChange={(e) =>
+                      setNuevoProducto({
+                        ...nuevoProducto,
+                        stock: e.target.value,
+                      })
+                    }
+                    className="border p-2 rounded w-full focus:ring-2 focus:ring-purple-400"
+                  />
+                </div>
+
+                {/* Precios */}
+                <div className="flex gap-4">
+                  <input
+                    type="number"
+                    placeholder="Precio compra"
+                    value={nuevoProducto.precio_compra}
+                    onChange={(e) =>
+                      setNuevoProducto({
+                        ...nuevoProducto,
+                        precio_compra: e.target.value,
+                      })
+                    }
+                    className="border p-2 rounded w-1/2 focus:ring-2 focus:ring-purple-400"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Precio venta"
+                    value={nuevoProducto.precio_venta}
+                    onChange={(e) =>
+                      setNuevoProducto({
+                        ...nuevoProducto,
+                        precio_venta: e.target.value,
+                      })
+                    }
+                    className="border p-2 rounded w-1/2 focus:ring-2 focus:ring-purple-400"
+                  />
+                </div>
+
+                {/* Imagen */}
+                <div>
+                  <label className="block text-gray-600 text-sm mb-1">
+                    Imagen
+                  </label>
+                  <input
+                    type="file"
+                    className="border p-2 rounded w-full"
+                    onChange={(e) =>
+                      setNuevoProducto({
+                        ...nuevoProducto,
+                        imagen: e.target.files[0],
+                      })
+                    }
+                  />
+                </div>
+
+                {/* Guardar */}
+                <button
+                  onClick={handleAgregarProducto}
+                  className="mt-4 bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700 transition"
                 >
-                  <option value="">
-                    {categoria ? "Selecciona un tipo" : "Primero selecciona una categoría"}
-                  </option>
-                  {tipos.length > 0 ? (
-                    tipos.map((t) => (
-                      <option key={t.id_tipo} value={t.id_tipo}>
-                        {t.nombre}
-                      </option>
-                    ))
-                  ) : categoria ? (
-                    <option value="">No hay tipos disponibles</option>
-                  ) : null}
-                </select>
+                  {nuevoProducto.id_producto
+                    ? "Actualizar producto"
+                    : "Guardar producto"}
+                </button>
               </div>
+            </div>
+          </div>
+        )}
 
-              {/* Variantes */}
-              {(categoria === "1" || categoria === "2") && (
-                <div className="mb-4">
-                  <button
-                    type="button"
-                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-                    onClick={() => setModalVisible(true)}
-                  >
-                    Agregar variantes
-                  </button>
-                  {variantes.length > 0 && (
-                    <table className="mt-2 w-full border">
-                      <thead>
-                        <tr>
-                          <th className="border px-2 py-1">Modelo</th>
-                          <th className="border px-2 py-1">Color</th>
-                          <th className="border px-2 py-1">Talla</th>
-                          <th className="border px-2 py-1">Precio</th>
-                          <th className="border px-2 py-1">Acciones</th>
+        {/* Modal variantes del producto (solo lectura) */}
+        {mostrarModalVariantesProducto && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white w-full max-w-2xl p-6 rounded-2xl shadow-lg relative">
+              <button
+                onClick={() => setMostrarModalVariantesProducto(false)}
+                className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl font-bold"
+              >
+                &times;
+              </button>
+
+              <h3 className="text-2xl font-semibold mb-6 text-center text-blue-700">
+                Variantes del producto
+              </h3>
+
+              {variantes.length === 0 ? (
+                <p className="text-gray-500 text-center">
+                  No hay variantes para este producto.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border border-gray-200 rounded-lg">
+                    <thead>
+                      <tr className="bg-blue-100 text-blue-800">
+                        <th className="py-2 px-4 text-left">#</th>
+                        <th className="py-2 px-4 text-left">Modelo</th>
+                        <th className="py-2 px-4 text-left">Color</th>
+                        <th className="py-2 px-4 text-left">Talla</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {variantes.map((v, index) => (
+                        <tr
+                          key={index}
+                          className={`${
+                            index % 2 === 0 ? "bg-gray-50" : "bg-white"
+                          } hover:bg-blue-50 transition`}
+                        >
+                          <td className="py-2 px-4 font-medium text-gray-700">
+                            {index + 1}
+                          </td>
+                          <td className="py-2 px-4 text-gray-800">{v.modelo}</td>
+                          <td className="py-2 px-4 text-gray-800">{v.color}</td>
+                          <td className="py-2 px-4 text-gray-800">{v.talla}</td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {variantes.map((v, i) => (
-                          <tr key={i}>
-                            <td className="border px-2 py-1">{v.modelo}</td>
-                            <td className="border px-2 py-1">{v.color}</td>
-                            <td className="border px-2 py-1">{v.talla}</td>
-                            <td className="border px-2 py-1">${v.precio}</td>
-                            <td className="border px-2 py-1">
-                              <button
-                                type="button"
-                                className="text-red-500"
-                                onClick={() => eliminarVariante(i)}
-                              >
-                                Eliminar
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
 
-              {/* Precio compra */}
-              <div className="mb-4">
-                <label className="block font-medium mb-1">Precio de compra</label>
-                <input
-                  type="number"
-                  className="w-full border p-2 rounded"
-                  value={precioCompra}
-                  onChange={(e) => setPrecioCompra(e.target.value)}
-                  required
-                />
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={() => setMostrarModalVariantesProducto(false)}
+                  className="bg-gray-200 text-gray-700 px-5 py-2 rounded-lg hover:bg-gray-300 transition font-medium"
+                >
+                  Cerrar
+                </button>
               </div>
-
-              {/* Precio venta */}
-              <div className="mb-4">
-                <label className="block font-medium mb-1">Precio de venta</label>
-                <input
-                  type="number"
-                  className="w-full border p-2 rounded"
-                  value={precioVenta}
-                  onChange={(e) => setPrecioVenta(e.target.value)}
-                  required
-                />
-              </div>
-
-              {/* Imagen */}
-              <div className="mb-6">
-                <label className="block font-medium mb-1">Imagen</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setImagen(e.target.files[0])}
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
-              >
-                {editando ? "Actualizar producto" : "Guardar producto"}
-              </button>
-            </form>
-
-            {/* Modal variantes */}
-            {modalVisible && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
-                  <h3 className="text-xl font-semibold mb-4">Agregar Variante</h3>
-                  <div className="mb-2">
-                    <input
-                      type="text"
-                      placeholder="Modelo"
-                      className="w-full border p-2 rounded mb-2"
-                      value={varianteModelo}
-                      onChange={(e) => setVarianteModelo(e.target.value)}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Color"
-                      className="w-full border p-2 rounded mb-2"
-                      value={varianteColor}
-                      onChange={(e) => setVarianteColor(e.target.value)}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Talla"
-                      className="w-full border p-2 rounded mb-2"
-                      value={varianteTalla}
-                      onChange={(e) => setVarianteTalla(e.target.value)}
-                    />
-                    <input
-                      type="number"
-                      placeholder="Precio"
-                      className="w-full border p-2 rounded"
-                      value={variantePrecio}
-                      onChange={(e) => setVariantePrecio(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2 mt-4">
-                    <button
-                      type="button"
-                      className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
-                      onClick={() => setModalVisible(false)}
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-                      onClick={agregarVariante}
-                    >
-                      Agregar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Tabla */}
-      {mostrarTablaProductos && (
-        <TablaProductos abrirModal={abrirModal} editarProducto={editarProducto} editando={editando} />
-      )}
-    </>
-  );
-}
-
-/* ===========================
-   🧩 COMPONENTE: TablaProductos
-=========================== */
-const TablaProductos = ({ abrirModal, editarProducto, editando }) => {
-  const [productos, setProductos] = useState([]);
-  const [busqueda, setBusqueda] = useState("");
-
-  useEffect(() => {
-    axios
-      .get("http://localhost:3001/api/productos")
-      .then((res) => setProductos(res.data))
-      .catch((err) => console.error(err));
-  }, []);
-
-  const productosFiltrados = productos.filter((p) => {
-    const texto = busqueda.toLowerCase();
-    const nombre = p.nombre?.toLowerCase() || "";
-    const categoria = p.categoria?.toLowerCase() || "";
-    return nombre.includes(texto) || categoria.includes(texto);
-  });
-
-  const eliminarProducto = async (id) => {
-    if (!window.confirm("¿Seguro que deseas eliminar este producto?")) return;
-    try {
-      await axios.delete(`http://localhost:3001/api/productos/${id}`);
-      alert("Producto eliminado correctamente");
-      setProductos(productos.filter((p) => p.id_producto !== id));
-    } catch (error) {
-      console.error(error);
-      alert("Error al eliminar el producto");
-    }
-  };
-
-  return (
-    <div className="p-6 space-y-6">
-      <h2 className="text-2xl font-semibold mb-6 text-center">
-        {editando ? "Editar Producto" : "Listado de Productos"}
-      </h2>
-
-      {/* Barra de búsqueda */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
-        <input
-          type="text"
-          placeholder="Buscar por nombre o categoría..."
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          className="w-full sm:w-64 border p-2 rounded focus:ring-2 focus:ring-blue-400"
-        />
-        <button
-          type="button"
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-          onClick={abrirModal}
-        >
-          + Agregar nuevo
-        </button>
-      </div>
-
-      {/* Tabla */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full border divide-y divide-gray-200">
-          <thead className="bg-gray-100 text-left">
-            <tr>
-              <th className="p-2 border">Imagen</th>
-              <th className="p-2 border">Código</th>
-              <th className="p-2 border">Nombre</th>
-              <th className="p-2 border">Categoría</th>
-              <th className="p-2 border">Precio Compra</th>
-              <th className="p-2 border">Precio Venta</th>
-              <th className="p-2 border">Stock</th>
-              <th className="p-2 border text-center">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {productosFiltrados.length === 0 ? (
-              <tr>
-                <td colSpan="8" className="text-center p-4">
-                  No hay productos que coincidan
-                </td>
-              </tr>
-            ) : (
-              productosFiltrados.map((p) => (
-                <tr key={p.id_producto}>
-                  <td className="p-2 border text-center">
-                    {p.imagen ? (
-                      <img
-                        src={`http://localhost:3001/${p.imagen}`}
-                        alt={p.nombre}
-                        className="w-12 h-12 object-cover mx-auto"
-                      />
-                    ) : (
-                      "Sin imagen"
-                    )}
-                  </td>
-                  <td className="p-2 border">{p.codigo}</td>
-                  <td className="p-2 border">{p.nombre}</td>
-                  <td className="p-2 border">{p.categoria}</td>
-                  <td className="p-2 border">{p.precio_compra}</td>
-                  <td className="p-2 border">{p.precio_venta}</td>
-                  <td className="p-2 border">{p.stock}</td>
-                  <td className="p-2 flex justify-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => editarProducto(p)}
-                      className="bg-yellow-400 text-white px-3 py-1 rounded hover:bg-yellow-500 transition"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        eliminarProducto(p.id_producto);
-                      }}
-                      className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
-                    >
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+        )}
       </div>
     </div>
   );
-};
+}
+
+export default Inventario;
