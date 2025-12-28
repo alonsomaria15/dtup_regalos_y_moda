@@ -1,24 +1,16 @@
 import express from 'express';
-import {
-  getProductos,
-  agregarProductos,
-  actualizarProductos,
-  eliminarProductos,
-} from '../controllers/productos.controller.js';
-import { upload } from '../middlewares/multer.js';
+import { getProductos, agregarProductos, actualizarProductos, eliminarProductos } from '../controllers/productos.controller.js';
+import { upload } from '../middlewares/multer.js'; // tu multer configurado
+import { getSucursales } from '../controllers/sucursales.controller.js';
 
 const router = express.Router();
 
-// 🔹 Obtener productos (por sucursal si se envía ?sucursal=)
 router.get('/', getProductos);
 
-// 🔹 Agregar producto (con imagen)
+// Aplicar multer al POST
 router.post('/agregar', upload.single('imagen'), agregarProductos);
 
-// 🔹 Actualizar producto
 router.put('/:id', upload.single('imagen'), actualizarProductos);
-
-// 🔹 Desactivar producto
 router.delete('/:id', eliminarProductos);
 
 router.get('/', getSucursales);

@@ -22,7 +22,7 @@ export const getProductos = async (req, res) => {
     const [rows] = await pool.query(query, params);
     res.json(rows);
   } catch (err) {
-    console.error('❌ Error al obtener productos:', err);
+    console.error(err);
     res.status(500).json({ error: 'Error al obtener productos' });
   }
 };
@@ -49,84 +49,31 @@ const agregarProductos = async (req, res) => {
 
     res.json({ id_producto: result.insertId });
   } catch (err) {
-    console.error('❌ Error al agregar producto:', err);
+    console.error('Error al agregar producto:', err);
     res.status(500).json({ error: 'Error al agregar producto' });
   }
 };
-
 
 // 🟠 Actualizar producto
 const actualizarProductos = async (req, res) => {
   try {
     const { id } = req.params;
-
-    const {
-      codigo,
-      nombre,
-      precio_venta,
-      precio_compra,
-      stock,
-      categoria,
-      genero,
-      sucursal,
-      id_sucursal,
-    } = req.body;
-
-    // 🏪 Aceptar tanto "sucursal" como "id_sucursal"
-    const sucursalFinal = sucursal || id_sucursal || null;
-
-    // 📸 Imagen (si se sube una nueva)
+    const { codigo, nombre, precio_venta, precio_compra, stock } = req.body;
     const imagen = req.file ? req.file.filename : null;
 
-    // 🔧 Armamos la consulta dinámica
-    let query = `
-      UPDATE productos
-      SET codigo=?, nombre=?, precio_venta=?, precio_compra=?, stock=?`;
+    await pool.query(
+      `UPDATE productos 
+       SET codigo=?, nombre=?, precio_venta=?, precio_compra=?, stock=?, imagen=? 
+       WHERE id_producto=?`,
+      [codigo, nombre, precio_venta, precio_compra, stock, imagen, id]
+    );
 
-    const params = [
-      codigo,
-      nombre,
-      precio_venta,
-      precio_compra,
-      stock,
-    ];
-
-    // Si hay categoría
-    if (categoria) {
-      query += ', id_categoria=?';
-      params.push(categoria);
-    }
-
-    // Si hay género
-    if (genero) {
-      query += ', id_genero=?';
-      params.push(genero);
-    }
-
-    // Si hay sucursal
-    if (sucursalFinal) {
-      query += ', id_sucursal=?';
-      params.push(sucursalFinal);
-    }
-
-    // Si se envió nueva imagen
-    if (imagen) {
-      query += ', imagen=?';
-      params.push(imagen);
-    }
-
-    query += ' WHERE id_producto=?';
-    params.push(id);
-
-    await pool.query(query, params);
-
-    res.json({ message: '✅ Producto actualizado correctamente' });
+    res.json({ message: 'Producto actualizado correctamente' });
   } catch (err) {
-    console.error('❌ Error al actualizar producto:', err);
+    console.error(err);
     res.status(500).json({ error: 'Error al actualizar producto' });
   }
 };
-
 
 // 🔴 Eliminar producto
 const eliminarProductos = async (req, res) => {
@@ -149,4 +96,3 @@ export {
   actualizarProductos,
   eliminarProductos
 };
-
