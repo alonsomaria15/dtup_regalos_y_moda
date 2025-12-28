@@ -1,9 +1,8 @@
 import { pool } from "../db.js";
 
-/* =========================================================
-   REGISTRAR VENTA
-========================================================= */
+
 export const registrarVenta = async (req, res) => {
+  console.log(res);
   const {
     carrito,
     total,
@@ -22,28 +21,38 @@ export const registrarVenta = async (req, res) => {
   }
 
   const conn = await pool.getConnection();
+
   try {
     await conn.beginTransaction();
 
-    // Insertar venta principal
+    // 🔹 Determinar el estado de la venta
+    const estadoVenta = esCredito ? "PENDIENTE" : "PAGADO";
+
+    // 🔹 Insertar la venta principal
     const [ventaResult] = await conn.query(
-      `INSERT INTO ventas (fecha, id_cliente, id_sucursal, total, total_final, estado)
-       VALUES (NOW(), ?, ?, ?, ?, ?)`,
-      [id_cliente || null, id_sucursal || 1, total || 0, total_final || 0, estado || "PAGADO"]
+      `INSERT INTO ventas (fecha, id_cliente, id_sucursal, total, total_final,metodo_pago, estado)
+       VALUES (NOW(), ?, ?, ?, ?, ?, ?)`,
+      [id_cliente || null, id_sucursal || 1, total || 0, total_final || 0, metodo_pago, estadoVenta]
     );
 
     const idVenta = ventaResult.insertId;
 
-    // Insertar detalle de venta
+    // 🔹 Insertar los productos en detalle_venta (ya con campo descuento)
     for (const p of carrito) {
+      const precioOriginal = Number(p.precio || 0);
+      const descuento = Number(p.descuento || 0);
+      const precioVendido = precioOriginal - descuento;
+      const subtotal = precioVendido * Number(p.cantidad || 1);
+
       await conn.query(
-        `INSERT INTO detalle_venta (id_venta, id_producto, cantidad, precio_original, precio_vendido, subtotal)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [idVenta, p.id_producto, p.cantidad, p.precio, p.precio - (p.descuento || 0), p.subtotal]
+        `INSERT INTO detalle_venta 
+         (id_venta, id_producto, cantidad, precio_original, precio_vendido, descuento, subtotal)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [idVenta, p.id_producto, p.cantidad, precioOriginal, precioVendido, descuento, subtotal]
       );
     }
 
-    // Si es venta a crédito, insertar abono inicial
+    // 🔹 Si es venta a crédito, registrar el abono inicial
     if (esCredito && Number(abono_inicial) > 0) {
       await conn.query(
         `INSERT INTO abonos (id_venta, fecha, monto, metodo_pago, observaciones)
@@ -56,12 +65,14 @@ export const registrarVenta = async (req, res) => {
     res.json({ mensaje: "✅ Venta registrada correctamente", idVenta });
   } catch (err) {
     await conn.rollback();
-    console.error(err);
+    console.error("❌ Error al registrar venta:", err);
     res.status(500).json({ error: "Error al registrar venta" });
   } finally {
     conn.release();
   }
 };
+
+
 
 /* =========================================================
    OBTENER VENTAS BÁSICAS
@@ -69,11 +80,19 @@ export const registrarVenta = async (req, res) => {
 export const obtenerVentas = async (req, res) => {
   try {
     const [ventas] = await pool.query(`
-      SELECT v.id_venta, v.fecha, v.total_final, c.nombre AS cliente_nombre, v.estado
-      FROM ventas v
-      LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
-      where c.activo = 'S' and v.estado  like '%pendiente%'
-      ORDER BY v.id_venta DESC
+      SELECT 
+    v.id_venta,
+    v.fecha,
+    SUM(dv.cantidad) AS cantidad_total,
+    v.total AS precio_venta_total,
+    SUM((dv.precio_original - dv.precio_vendido) * dv.cantidad) AS descuento_total,
+        v.total_final,
+        v.estado
+FROM ventas v
+JOIN detalle_venta dv ON v.id_venta = dv.id_venta
+Where v.activo = 'S'
+GROUP BY v.id_venta, v.fecha, v.id_cliente, v.id_sucursal, v.total, v.total_final, v.estado
+ORDER BY v.fecha DESC
     `);
     res.json(ventas);
   } catch (err) {
@@ -109,6 +128,7 @@ export const obtenerVentasDetalle = async (req, res) => {
       FROM ventas v
       JOIN detalle_venta dv ON v.id_venta = dv.id_venta
       JOIN productos p ON dv.id_producto = p.id_producto
+      WHERE v.activo ='S'
       ORDER BY v.fecha DESC
     `);
 
@@ -127,10 +147,29 @@ export const obtenerDetalleVenta = async (req, res) => {
   try {
     const [detalle] = await pool.query(
       `
-      SELECT p.nombre, dv.cantidad, dv.precio_vendido, dv.subtotal
-      FROM detalle_venta dv
-      JOIN productos p ON dv.id_producto = p.id_producto
-      WHERE dv.id_venta = ?
+     SELECT 
+    v.id_venta,
+    v.fecha,
+    c.nombre AS cliente,
+    v.metodo_pago,
+    v.estado,
+    IFNULL(SUM(a.monto), 0) AS total_abonado,
+    p.nombre AS producto,
+    dv.cantidad,
+    dv.precio_vendido AS precio,
+    dv.descuento,
+    dv.subtotal
+FROM ventas v
+LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
+LEFT JOIN abonos a ON v.id_venta = a.id_venta
+JOIN detalle_venta dv ON v.id_venta = dv.id_venta
+JOIN productos p ON dv.id_producto = p.id_producto
+WHERE v.id_venta = ? AND v.activo = 'S'
+GROUP BY 
+    v.id_venta, v.fecha, c.nombre, v.metodo_pago, v.estado, 
+    p.nombre, dv.cantidad, dv.precio_vendido, dv.descuento, dv.subtotal
+ORDER BY v.fecha DESC
+
       `,
       [idVenta]
     );
@@ -148,7 +187,7 @@ export const obtenerAbonos = async (req, res) => {
   const { id_venta } = req.params;
   try {
     const [abonos] = await pool.query(
-      `SELECT * FROM abonos WHERE id_venta = ? ORDER BY fecha ASC`,
+      `SELECT * FROM abonos WHERE id_venta = ? AND activo = 'S' ORDER BY fecha ASC`,
       [id_venta]
     );
     res.json(abonos);
@@ -226,20 +265,19 @@ export const eliminarVenta = async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // Eliminar primero los abonos y detalle
-    await conn.query(`DELETE FROM abonos WHERE id_venta = ?`, [idVenta]);
-    await conn.query(`DELETE FROM detalle_venta WHERE id_venta = ?`, [idVenta]);
-
-    // Luego la venta principal
-    await conn.query(`DELETE FROM ventas WHERE id_venta = ?`, [idVenta]);
+    // En lugar de eliminar, desactivamos la venta y sus detalles
+    await conn.query(`UPDATE ventas SET activo = ? WHERE id_venta = ?`, ['N',idVenta]);
+    await conn.query(`UPDATE detalle_venta SET activo = ? WHERE id_venta = ?`, ['N',idVenta]);
+    await conn.query(`UPDATE abonos SET activo = ? WHERE id_venta = ?`, ['N',idVenta]);
 
     await conn.commit();
-    res.json({ mensaje: "🗑️ Venta eliminada correctamente" });
+    res.json({ mensaje: "🟡 Venta desactivada correctamente" });
   } catch (err) {
     await conn.rollback();
-    console.error(err);
-    res.status(500).json({ error: "Error al eliminar venta" });
+    console.error("Error al desactivar venta:", err);
+    res.status(500).json({ error: "Error al desactivar la venta" });
   } finally {
     conn.release();
   }
 };
+
