@@ -21,4 +21,6 @@ router.put('/:id', upload.single('imagen'), actualizarProductos);
 // 🔹 Desactivar producto
 router.delete('/:id', eliminarProductos);
 
+router.get('/', getSucursales);
+
 export default router;

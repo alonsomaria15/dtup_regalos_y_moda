@@ -12,9 +12,17 @@ function Inventario() {
   const [productosPorPagina] = useState(10);
   const [categorias, setCategorias] = useState([]);
   const [generos, setGeneros] = useState([]);
-  const [variantes, setVariantes] = useState([]);
+  const [tiposFiltrados, setTiposFiltrados] = useState([]);
+const [mostrarModalVariante, setMostrarModalVariante] = useState(false);
+const [nuevaVariante, setNuevaVariante] = useState({ modelo: "", color: "", talla: "" });
+ const [inversionTotal, setInversionTotal] = useState(0);
+// Estados
+const [sucursales, setSucursales] = useState([]);
+const [sucursalSeleccionada, setSucursalSeleccionada] = useState("");
+const [productosFiltrados, setProductosFiltrados] = useState([]);
+
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
-  const [sucursalSeleccionada, setSucursalSeleccionada] = useState("");
+
 
   // 🆕 Modal para registrar una nueva variante
   const [mostrarModalAgregarVariante, setMostrarModalAgregarVariante] =
@@ -112,11 +120,6 @@ function Inventario() {
 
   // 🟡 Agregar o editar producto
   const handleAgregarProducto = async () => {
-    if (!sucursalSeleccionada) {
-      alert("⚠️ Debes seleccionar una sucursal antes de agregar un producto");
-      return;
-    }
-
     try {
       const formData = new FormData();
       const codigoGenerado = nuevoProducto.codigo || generarCodigo();
@@ -128,14 +131,13 @@ function Inventario() {
       formData.append("precio_compra", nuevoProducto.precio_compra);
       formData.append("precio_venta", nuevoProducto.precio_venta);
       formData.append("stock", nuevoProducto.stock);
-      formData.append("sucursal", nuevoProducto.sucursal || sucursalSeleccionada);
 
-      if (nuevoProducto.imagen) {
-        formData.append("imagen", nuevoProducto.imagen);
-      }
+    if (nuevoProducto.imagen) {
+      formData.append("imagen", nuevoProducto.imagen);
+    }
 
       if (nuevoProducto.id_producto) {
-        // ✏️ EDITAR PRODUCTO
+        // ✏️ EDITAR
         await axios.put(
           `http://localhost:3001/api/productos/${nuevoProducto.id_producto}`,
           formData,
@@ -143,37 +145,29 @@ function Inventario() {
         );
         alert("✅ Producto actualizado correctamente");
       } else {
-        // 🆕 AGREGAR NUEVO PRODUCTO
+        // 🆕 AGREGAR
         const res = await axios.post(
           "http://localhost:3001/api/productos/agregar",
           formData,
           { headers: { "Content-Type": "multipart/form-data" } }
         );
 
-        alert("✅ Producto agregado correctamente");
+        const id_producto = res.data.id_producto;
 
-        const idNuevoProducto = res.data.id_producto;
-
-        // 🟢 Si hay variantes temporales, guardarlas en la tabla
-        if (variantesTemp.length > 0 && idNuevoProducto) {
-          for (const v of variantesTemp) {
-            await axios.post(`http://localhost:3001/api/variantes`, {
-              id_producto: idNuevoProducto,
-              ...v,
-            });
-          }
-          alert("🟢 Variantes guardadas correctamente");
-          setVariantesTemp([]);
+        if (variantes.length > 0) {
+          await axios.post("http://localhost:3001/api/variantes", {
+            id_producto,
+            variantes,
+          });
         }
+
+        alert("✅ Producto y variantes registrados correctamente");
       }
 
+      // 🔄 Limpiar y recargar
       limpiarCampos();
       setMostrarModal(false);
-
-      // Recargar productos de la sucursal actual
-      const r = await axios.get(
-        `http://localhost:3001/api/productos?sucursal=${sucursalSeleccionada}`
-      );
+      const r = await axios.get("http://localhost:3001/api/productos");
       setProductos(r.data);
     } catch (error) {
       console.error(error);
@@ -226,240 +220,441 @@ function Inventario() {
     }
   }, [nuevoProducto.categoria]);
 
-  // 🔍 Filtrar productos
-  const productosFiltrados = productos.filter(
-    (p) =>
-      p.nombre?.toLowerCase().includes(buscar.toLowerCase()) ||
-      p.categoria?.toLowerCase().includes(buscar.toLowerCase()) ||
-      p.codigo?.toLowerCase().includes(buscar.toLowerCase())
+ // Obtener sucursales desde backend
+useEffect(() => {
+  const fetchSucursales = async () => {
+    try {
+      const res = await axios.get("http://localhost:3001/api/sucursales");
+      setSucursales(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  fetchSucursales();
+}, []);
+
+ // Filtrar productos según sucursal y búsqueda
+  useEffect(() => {
+    const filtrados = productos.filter(
+      (p) =>
+        sucursalSeleccionada && // solo si hay sucursal seleccionada
+        p.id_sucursal === Number(sucursalSeleccionada) &&
+        (
+          p.nombre?.toLowerCase().includes(buscar.toLowerCase()) ||
+          p.categoria?.toLowerCase().includes(buscar.toLowerCase()) ||
+          p.codigo?.toLowerCase().includes(buscar.toLowerCase())
+        )
+    );
+    setProductosFiltrados(filtrados);
+  }, [productos, sucursalSeleccionada, buscar]);
+
+
+useEffect(() => {
+  setProductosFiltrados(
+    productos.filter((p) => {
+      // No mostrar si no hay sucursal seleccionada
+      if (!sucursalSeleccionada) return false;
+
+      // Filtrar por sucursal
+      if (p.id_sucursal !== Number(sucursalSeleccionada)) return false;
+
+      // Convertir a string antes de comparar
+      const nombre = p.nombre?.toString().toLowerCase() || '';
+      const categoria = p.categoria?.toString().toLowerCase() || '';
+      const codigo = p.codigo?.toString().toLowerCase() || '';
+
+      // Filtrar por búsqueda
+      return (
+        nombre.includes(buscar.toLowerCase()) ||
+        categoria.includes(buscar.toLowerCase()) ||
+        codigo.includes(buscar.toLowerCase())
+      );
+    })
   );
+}, [productos, buscar, sucursalSeleccionada]);
+
+
 
   // 🔹 Paginación
   const indexUltimo = paginaActual * productosPorPagina;
   const indexPrimero = indexUltimo - productosPorPagina;
   const productosPagina = productosFiltrados.slice(indexPrimero, indexUltimo);
+  const totalPaginas = Math.ceil(productosFiltrados.length / productosPorPagina);
 
-  return (
-    <div className="p-6 bg-gray-100 min-h-screen">
-      <div className="bg-white shadow-xl rounded-2xl p-6 space-y-6">
-        <h2 className="text-2xl font-semibold mb-4">Inventario</h2>
+ return (
+  <div className="p-6 bg-gray-100 min-h-screen">
+    <div className="bg-white shadow-xl rounded-2xl p-6 space-y-6">
+      
+      <h2 className="text-2xl font-semibold mb-4">Inventario</h2>
 
-        {/* 🏪 Selección de sucursal */}
-        <div className="flex items-center justify-start mb-4 bg-yellow-100 border border-yellow-400 p-3 rounded-lg">
-          <label className="text-black font-bold mr-3">Sucursal:</label>
-          <select
-            value={sucursalSeleccionada}
-            onChange={(e) => {
-              setSucursalSeleccionada(e.target.value);
-              setPaginaActual(1);
-              setNuevoProducto((prev) => ({
-                ...prev,
-                sucursal: e.target.value,
-              }));
-            }}
-            className="border-2 border-black p-2 rounded bg-white text-black"
-          >
-            <option value="">Selecciona una sucursal...</option>
-            <option value="1">Sucursal 1: Alberto García</option>
-            <option value="2">Sucursal 2: Francisco Villa</option>
-          </select>
+        {/* Encabezado */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col">
+            <label className="text-gray-600 font-medium">Total Inversión</label>
+            <span className="text-xl font-semibold text-green-600">
+              $
+              {productos
+                .reduce(
+                  (total, p) => total + Number(p.precio_compra) * Number(p.stock),
+                  0
+                )
+                .toLocaleString()}
+            </span>
+          </div>
+
+          {/* 🔍 Búsqueda + botón */}
+          <div className="flex items-center gap-4">
+            <input
+              type="text"
+              placeholder="Buscar producto..."
+              className="border p-2 rounded focus:ring-2 focus:ring-blue-400"
+              value={buscar}
+              onChange={(e) => {
+                setBuscar(e.target.value);
+                setPaginaActual(1);
+              }}
+            />
+            <button
+              onClick={() => {
+                limpiarCampos();
+                setMostrarModal(true);
+              }}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+            >
+              Agregar Producto
+            </button>
+          </div>
         </div>
 
-        {/* 🟢 Tabla de productos */}
-        {!sucursalSeleccionada ? (
-          <div className="text-center py-10 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-yellow-700 text-lg font-medium">
-              🏪 Selecciona una sucursal para ver los productos.
-            </p>
+        {/* Tabla */}
+        <div className="overflow-x-auto">
+          <table className="min-w-full border divide-y divide-gray-200 mt-4">
+            <thead className="bg-gray-100 text-left">
+              <tr>
+                <th className="p-2">N°</th>
+                <th className="p-2">Código</th>
+                <th className="p-2">Imagen</th>
+                <th className="p-2">Nombre</th>
+                <th className="p-2">Categoría</th>
+                <th className="p-2">Precio Compra</th>
+                <th className="p-2">Precio Venta</th>
+                <th className="p-2">Ganancias</th>
+                <th className="p-2">Stock</th>
+                <th className="p-2">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {productosPagina.length > 0 ? (
+                productosPagina.map((p, index) => (
+                  <tr key={p.id_producto}>
+                    <td className="p-2">
+                      {(paginaActual - 1) * productosPorPagina + index + 1}
+                    </td>
+                    <td className="p-2">{p.codigo}</td>
+                    <td className="p-2">
+                      {p.imagen ? (
+                        <img
+                          src={`http://localhost:3001/uploads/${p.imagen}`}
+                          alt={p.nombre}
+                          onError={(e) =>
+                            (e.target.src = "https://via.placeholder.com/50")
+                          }
+                          className="w-16 h-16 object-cover rounded cursor-pointer hover:scale-110 transition-transform"
+                          onClick={() =>
+                            setImagenGrande(`http://localhost:3001/uploads/${p.imagen}`)
+                          }
+                        />
+                      ) : (
+                        "Sin imagen"
+                      )}
+                    </td>
+                    <td className="p-2">{p.nombre}</td>
+                    <td className="p-2">{p.categoria}</td>
+                    <td className="p-2">${p.precio_compra}</td>
+                    <td className="p-2">${p.precio_venta}</td>
+                    <td className="p-2">${p.precio_venta - p.precio_compra}</td>
+                    <td className="p-2">{p.stock}</td>
+                    <td className="p-2 flex gap-2">
+                      <button
+                        className="bg-yellow-400 text-white px-3 py-1 rounded hover:bg-yellow-500 transition"
+                        onClick={() => handleEditarProducto(p)}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
+                        onClick={() => handleEliminarProducto(p.id_producto)}
+                      >
+                        Eliminar
+                      </button>
+                      <button
+                        className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition"
+                        onClick={() => abrirModalVariantesProducto(p.id_producto)}
+                      >
+                        Variantes
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="10" className="text-center py-4 text-gray-500">
+                    No se encontraron productos
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
+          {/* Paginación */}
+          {totalPaginas > 1 && (
+            <div className="flex justify-center mt-4 space-x-2">
+              {Array.from({ length: totalPaginas }, (_, i) => (
+                <button
+                  key={i + 1}
+                  onClick={() => setPaginaActual(i + 1)}
+                  className={`px-3 py-1 rounded ${
+                    paginaActual === i + 1
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-200 hover:bg-gray-300"
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Imagen ampliada */}
+        {imagenGrande && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50"
+            onClick={() => setImagenGrande(null)}
+          >
+            <img
+              src={imagenGrande}
+              alt="Vista ampliada"
+              className="max-w-3xl max-h-[80vh] rounded-2xl shadow-2xl border-4 border-white transition-transform duration-300 scale-100 hover:scale-105"
+            />
           </div>
-        ) : (
-          <>
-            {/* Buscador y botón */}
-            <div className="flex items-center justify-between gap-4">
-              <input
-                type="text"
-                placeholder="Buscar producto..."
-                className="border p-2 rounded focus:ring-2 focus:ring-blue-400"
-                value={buscar}
-                onChange={(e) => setBuscar(e.target.value)}
-              />
+        )}
+
+        {/* 🧩 Modal de producto */}
+        {mostrarModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white w-full max-w-md p-6 rounded-2xl shadow-lg relative">
               <button
                 onClick={() => {
                   limpiarCampos();
-                  setMostrarModal(true);
+                  setMostrarModal(false);
                 }}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+                className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl font-bold"
               >
-                Agregar Producto
+                &times;
               </button>
-            </div>
 
-            {/* Tabla de productos */}
-            <div className="overflow-x-auto mt-4">
-              <table className="min-w-full border divide-y divide-gray-200">
-                <thead className="bg-gray-100 text-left">
-                  <tr>
-                    <th className="p-2">#</th>
-                    <th className="p-2">Código</th>
-                    <th className="p-2">Nombre</th>
-                    <th className="p-2">Categoría</th>
-                    <th className="p-2">Precio Compra</th>
-                    <th className="p-2">Precio Venta</th>
-                    <th className="p-2">Ganancia</th>
-                    <th className="p-2">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {productosPagina.map((p, i) => (
-                    <tr key={p.id_producto} className="hover:bg-gray-50">
-                      <td className="p-2">
-                        {(paginaActual - 1) * productosPorPagina + i + 1}
-                      </td>
-                      <td className="p-2">{p.codigo}</td>
-                      <td className="p-2">{p.nombre}</td>
-                      <td className="p-2">{p.categoria}</td>
-                      <td className="p-2">${p.precio_compra}</td>
-                      <td className="p-2">${p.precio_venta}</td>
-                      <td className="p-2 text-green-600 font-medium">
-                        ${p.precio_venta - p.precio_compra}
-                      </td>
-                      <td className="p-2 flex gap-2">
-                        <button
-                          onClick={() => handleEditarProducto(p)}
-                          className="bg-yellow-400 text-white px-3 py-1 rounded hover:bg-yellow-500 transition"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => handleEliminarProducto(p.id_producto)}
-                          className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
-                        >
-                          Eliminar
-                        </button>
-                        <button
-                          onClick={() =>
-                            abrirModalVariantesProducto(p.id_producto)
-                          }
-                          className="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 transition"
-                        >
-                          Variantes
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <h2 className="text-2xl font-semibold text-center text-gray-800 mb-6">
+                {nuevoProducto.id_producto
+                  ? "Editar Producto"
+                  : "Agregar Producto"}
+              </h2>
+
+              {/* Formulario */}
+              <div className="flex flex-col space-y-4">
+                <input
+                  type="text"
+                  placeholder="Nombre del producto"
+                  value={nuevoProducto.nombre}
+                  onChange={(e) =>
+                    setNuevoProducto({
+                      ...nuevoProducto,
+                      nombre: e.target.value,
+                    })
+                  }
+                  className="border rounded-lg p-2 w-full focus:ring-2 focus:ring-purple-400"
+                />
+
+                {/* Categoría */}
+                <div>
+                  <label className="block text-gray-600 text-sm mb-1">
+                    Categoría
+                  </label>
+                  <select
+                    value={nuevoProducto.categoria || ""}
+                    onChange={(e) =>
+                      setNuevoProducto({
+                        ...nuevoProducto,
+                        categoria: e.target.value,
+                      })
+                    }
+                    className="border rounded-lg p-2 w-full focus:ring-2 focus:ring-purple-400"
+                  >
+                    <option value="">Selecciona una categoría</option>
+                    {categorias.map((c) => (
+                      <option key={c.id_categoria} value={c.id_categoria}>
+                        {c.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Género */}
+                <div>
+                  <label className="block text-gray-600 text-sm mb-1">
+                    Género
+                  </label>
+                  <select
+                    value={nuevoProducto.genero || ""}
+                    onChange={(e) =>
+                      setNuevoProducto({
+                        ...nuevoProducto,
+                        genero: e.target.value,
+                      })
+                    }
+                    className="border rounded-lg p-2 w-full focus:ring-2 focus:ring-purple-400"
+                  >
+                    <option value="">Selecciona un género</option>
+                    {generos.map((g) => (
+                      <option key={g.id_genero} value={g.id_genero}>
+                        {g.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Stock */}
+                <div>
+                  <label className="block text-gray-600 text-sm mb-1">
+                    Stock disponible
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="Cantidad en existencia"
+                    value={nuevoProducto.stock}
+                    onChange={(e) =>
+                      setNuevoProducto({
+                        ...nuevoProducto,
+                        stock: e.target.value,
+                      })
+                    }
+                    className="border p-2 rounded w-full focus:ring-2 focus:ring-purple-400"
+                  />
+                </div>
+
+                {/* Precios */}
+                <div className="flex gap-4">
+                  <input
+                    type="number"
+                    placeholder="Precio compra"
+                    value={nuevoProducto.precio_compra}
+                    onChange={(e) =>
+                      setNuevoProducto({
+                        ...nuevoProducto,
+                        precio_compra: e.target.value,
+                      })
+                    }
+                    className="border p-2 rounded w-1/2 focus:ring-2 focus:ring-purple-400"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Precio venta"
+                    value={nuevoProducto.precio_venta}
+                    onChange={(e) =>
+                      setNuevoProducto({
+                        ...nuevoProducto,
+                        precio_venta: e.target.value,
+                      })
+                    }
+                    className="border p-2 rounded w-1/2 focus:ring-2 focus:ring-purple-400"
+                  />
+                </div>
+
+                {/* Imagen */}
+                <div>
+                  <label className="block text-gray-600 text-sm mb-1">
+                    Imagen
+                  </label>
+                  <input
+                    type="file"
+                    className="border p-2 rounded w-full"
+                    onChange={(e) =>
+                      setNuevoProducto({
+                        ...nuevoProducto,
+                        imagen: e.target.files[0],
+                      })
+                    }
+                  />
+                </div>
+
+                {/* Guardar */}
+                <button
+                  onClick={handleAgregarProducto}
+                  className="mt-4 bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700 transition"
+                >
+                  {nuevoProducto.id_producto
+                    ? "Actualizar producto"
+                    : "Guardar producto"}
+                </button>
+              </div>
             </div>
-          </>
+          </div>
         )}
 
-        {/* 🟣 Modal para registrar variantes (con tabla local) */}
-        {mostrarModalAgregarVariante && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-            <div className="bg-white w-full max-w-lg p-6 rounded-2xl shadow-lg relative">
+        {/* Modal variantes del producto (solo lectura) */}
+        {mostrarModalVariantesProducto && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white w-full max-w-2xl p-6 rounded-2xl shadow-lg relative">
               <button
-                onClick={() => setMostrarModalAgregarVariante(false)}
+                onClick={() => setMostrarModalVariantesProducto(false)}
                 className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl font-bold"
               >
                 &times;
               </button>
 
-              <h3 className="text-2xl font-semibold mb-4 text-center text-purple-700">
-                Registrar Variantes
+              <h3 className="text-2xl font-semibold mb-6 text-center text-blue-700">
+                Variantes del producto
               </h3>
 
-              {/* Formulario + tabla */}
-              <div className="flex flex-col md:flex-row gap-3 mb-4">
-                <input
-                  type="text"
-                  placeholder="Modelo"
-                  value={nuevaVariante.modelo}
-                  onChange={(e) =>
-                    setNuevaVariante({ ...nuevaVariante, modelo: e.target.value })
-                  }
-                  className="border p-2 rounded w-full"
-                />
-                <input
-                  type="text"
-                  placeholder="Color"
-                  value={nuevaVariante.color}
-                  onChange={(e) =>
-                    setNuevaVariante({ ...nuevaVariante, color: e.target.value })
-                  }
-                  className="border p-2 rounded w-full"
-                />
-                <input
-                  type="text"
-                  placeholder="Talla"
-                  value={nuevaVariante.talla}
-                  onChange={(e) =>
-                    setNuevaVariante({ ...nuevaVariante, talla: e.target.value })
-                  }
-                  className="border p-2 rounded w-full"
-                />
-                <button
-                  onClick={() => {
-                    if (
-                      !nuevaVariante.modelo ||
-                      !nuevaVariante.color ||
-                      !nuevaVariante.talla
-                    ) {
-                      alert("⚠️ Completa todos los campos");
-                      return;
-                    }
-                    setVariantesTemp([...variantesTemp, nuevaVariante]);
-                    setNuevaVariante({ modelo: "", color: "", talla: "" });
-                  }}
-                  className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition"
-                >
-                  ➕
-                </button>
-              </div>
-
-              {/* Tabla de variantes */}
-              {variantesTemp.length > 0 ? (
-                <table className="min-w-full border border-gray-200 rounded-lg text-sm">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="py-2 px-3 text-left">#</th>
-                      <th className="py-2 px-3 text-left">Modelo</th>
-                      <th className="py-2 px-3 text-left">Color</th>
-                      <th className="py-2 px-3 text-left">Talla</th>
-                      <th className="py-2 px-3 text-center">Eliminar</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {variantesTemp.map((v, i) => (
-                      <tr key={i} className="border-t hover:bg-gray-50">
-                        <td className="py-2 px-3">{i + 1}</td>
-                        <td className="py-2 px-3">{v.modelo}</td>
-                        <td className="py-2 px-3">{v.color}</td>
-                        <td className="py-2 px-3">{v.talla}</td>
-                        <td className="py-2 px-3 text-center">
-                          <button
-                            onClick={() =>
-                              setVariantesTemp(
-                                variantesTemp.filter((_, idx) => idx !== i)
-                              )
-                            }
-                            className="text-red-600 hover:text-red-800 font-bold"
-                          >
-                            ✕
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
+              {variantes.length === 0 ? (
                 <p className="text-gray-500 text-center">
-                  No has agregado variantes aún.
+                  No hay variantes para este producto.
                 </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border border-gray-200 rounded-lg">
+                    <thead>
+                      <tr className="bg-blue-100 text-blue-800">
+                        <th className="py-2 px-4 text-left">#</th>
+                        <th className="py-2 px-4 text-left">Modelo</th>
+                        <th className="py-2 px-4 text-left">Color</th>
+                        <th className="py-2 px-4 text-left">Talla</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {variantes.map((v, index) => (
+                        <tr
+                          key={index}
+                          className={`${
+                            index % 2 === 0 ? "bg-gray-50" : "bg-white"
+                          } hover:bg-blue-50 transition`}
+                        >
+                          <td className="py-2 px-4 font-medium text-gray-700">
+                            {index + 1}
+                          </td>
+                          <td className="py-2 px-4 text-gray-800">{v.modelo}</td>
+                          <td className="py-2 px-4 text-gray-800">{v.color}</td>
+                          <td className="py-2 px-4 text-gray-800">{v.talla}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
 
               <div className="flex justify-end mt-6">
                 <button
-                  onClick={() => setMostrarModalAgregarVariante(false)}
+                  onClick={() => setMostrarModalVariantesProducto(false)}
                   className="bg-gray-200 text-gray-700 px-5 py-2 rounded-lg hover:bg-gray-300 transition font-medium"
                 >
                   Cerrar
