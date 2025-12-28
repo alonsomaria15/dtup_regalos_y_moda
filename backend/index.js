@@ -12,8 +12,7 @@ import categoriasRoutes from "./routes/categorias.routes.js";
 import generoRoutes from "./routes/genero.routes.js";
 import tiposRoutes from "./routes/tipos.routes.js";
 import variantesRoutes from "./routes/variantes.routes.js";
-
-
+import sucursalesRoutes from './routes/sucursales.routes.js';
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -35,6 +34,9 @@ app.use("/api/variantes", variantesRoutes);
 // ✅ Servir la carpeta "uploads" de forma estática
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+app.use('/api/sucursales', sucursalesRoutes);
+
+app.use('/api/sucursales', sucursalesRoutes);
 app.listen(3001, () => {
   console.log("✅ Servidor corriendo en http://localhost:3001");
 });
