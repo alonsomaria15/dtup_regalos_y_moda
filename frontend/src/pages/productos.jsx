@@ -411,6 +411,13 @@ useEffect(() => {
                   <td className="p-2">${p.precio_venta - p.precio_compra}</td>
                   <td className="p-2">{p.stock}</td>
                   <td className="p-2 flex gap-2">
+                      <button
+                      className="bg-yellow-400 text-white px-3 py-1 rounded hover:bg-yellow-500 transition"
+                      onClick={() => handleEditarProducto(p)}
+                    >
+                      Editar
+                    </button>
+
                     <button
                       className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
                       onClick={() => handleEliminarProducto(p.id_producto)}

@@ -81,6 +81,7 @@ export const obtenerVentas = async (req, res) => {
   try {
     const [ventas] = await pool.query(`
       SELECT 
+      v.id_sucursal,
     v.id_venta,
     v.fecha,
     SUM(dv.cantidad) AS cantidad_total,

@@ -29,16 +29,42 @@ function Ventas() {
 
   // Paginación
   const [paginaActual, setPaginaActual] = useState(1);
-  const ventasPorPagina = 10;
-  const indexUltimaVenta = paginaActual * ventasPorPagina;
-  const indexPrimeraVenta = indexUltimaVenta - ventasPorPagina;
-  const ventasActuales = ventas.slice(indexPrimeraVenta, indexUltimaVenta);
-  const totalPaginas = Math.ceil(ventas.length / ventasPorPagina);
+
+
+  const [sucursales, setSucursales] = useState([]);
+const [sucursalSeleccionada, setSucursalSeleccionada] = useState("");
+
 
   const cambiarPagina = (numeroPagina) => {
     setPaginaActual(numeroPagina);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  useEffect(() => {
+  axios.get("http://localhost:3001/api/sucursales")
+    .then(res => setSucursales(res.data))
+    .catch(err => console.error(err));
+}, []);
+
+// Filtrado por sucursal
+const ventasFiltradas =
+  sucursalSeleccionada && sucursalSeleccionada !== "todas"
+    ? ventas.filter((v) => Number(v.id_sucursal) === Number(sucursalSeleccionada))
+    : [];
+
+
+// Luego haces la paginación sobre las ventas filtradas
+const ventasPorPagina = 10;
+const indexUltimaVenta = paginaActual * ventasPorPagina;
+const indexPrimeraVenta = indexUltimaVenta - ventasPorPagina;
+const ventasActuales = ventasFiltradas.slice(indexPrimeraVenta, indexUltimaVenta);
+const totalPaginas = Math.ceil(ventasFiltradas.length / ventasPorPagina);
+
+
+
+console.log(ventas);
+
+
 
   // Cargar clientes y productos al abrir modal
   useEffect(() => {
@@ -109,6 +135,11 @@ function Ventas() {
 
   // Registrar venta
   const registrarVenta = async () => {
+    if (!sucursalSeleccionada || sucursalSeleccionada === "todas") {
+  alert("⚠️ Debes seleccionar una sucursal válida antes de registrar la venta.");
+  return;
+}
+
     if (productos.length === 0) return alert("Agrega al menos un producto");
     if (tipoVenta === "abonos" && !clienteSeleccionado)
       return alert("Selecciona un cliente para ventas a crédito");
@@ -127,7 +158,7 @@ function Ventas() {
         total: totalOriginal,
         total_final: totalConDescuento,
         id_cliente: clienteSeleccionado ? clienteSeleccionado.id_cliente : null,
-        id_sucursal: 1,
+        id_sucursal: sucursalSeleccionada,
         abono_inicial: tipoVenta === "abonos" ? Number(anticipo || 0) : 0,
         metodo_pago: tipoPago,
         estado: tipoVenta === "abonos" ? "PENDIENTE" : "PAGADO",
@@ -224,6 +255,21 @@ function Ventas() {
     <div className="p-6 bg-gray-100 min-h-screen">
       <div className="bg-white shadow-xl rounded-2xl p-6 space-y-6">
         <h2 className="text-2xl font-semibold mb-4 text-center">📦 Ventas Registradas</h2>
+<div className="flex justify-start mb-4 gap-2">
+  <label>Sucursal:</label>
+  <select
+    value={sucursalSeleccionada}
+    onChange={(e) => setSucursalSeleccionada(e.target.value)}
+    className="border rounded-lg p-2"
+  >
+    <option value="todas">Todas</option>
+    {sucursales.map((s) => (
+      <option key={s.id_sucursal} value={s.id_sucursal}>
+        {s.nombre}
+      </option>
+    ))}
+  </select>
+</div>
 
         <div className="flex justify-end mb-4">
           <button
@@ -253,9 +299,13 @@ function Ventas() {
             <tbody>
               {ventasActuales.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="text-center p-4 text-gray-500">
-                    No se han registrado ventas
-                  </td>
+                  <td colSpan="10" className="text-center p-4 text-gray-500">
+                  {sucursalSeleccionada === ""
+                    ? "Selecciona una sucursal para ver sus ventas"
+                    : sucursalSeleccionada === "todas"
+                    ? "No se muestran ventas cuando seleccionas 'Todas'"
+                    : "No hay ventas registradas para esta sucursal"}
+                </td>
                 </tr>
               ) : (
                 ventasActuales.map((v, index) => (
@@ -353,7 +403,15 @@ function Ventas() {
             </button>
 
             <h2 className="text-2xl font-semibold mb-4 text-center">Registrar Venta</h2>
-
+<div className="mb-4 text-center text-lg font-medium">
+  🏬 Sucursal actual:{" "}
+  <span className="font-semibold text-blue-600">
+    {
+      sucursales.find((s) => s.id_sucursal == sucursalSeleccionada)?.nombre ||
+      "No seleccionada"
+    }
+  </span>
+</div>
             {/* Tipo de venta y pago */}
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
@@ -532,20 +590,28 @@ function Ventas() {
             </div>
 
             {/* Botones de acción */}
-            <div className="flex justify-end gap-2 mt-6">
-              <button
-                onClick={() => setMostrarModal(false)}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={registrarVenta}
-                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-              >
-                Registrar Venta
-              </button>
-            </div>
+           <div className="flex justify-end gap-2 mt-6">
+  <button
+    onClick={() => setMostrarModal(false)}
+    className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400"
+  >
+    Cancelar
+  </button>
+
+  {sucursalSeleccionada && sucursalSeleccionada !== "todas" ? (
+    <button
+      onClick={registrarVenta}
+      className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+    >
+      Registrar Venta
+    </button>
+  ) : (
+    <span className="text-gray-500 italic self-center">
+      Selecciona una sucursal para registrar ventas
+    </span>
+  )}
+</div>
+
           </div>
         </div>
       )}
